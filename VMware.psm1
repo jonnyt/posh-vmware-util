@@ -406,7 +406,7 @@ Function Unmount-DatastoreFromHost
     }
 }
 
-Function Unmount-Datastore 
+Function Unmount-Datastore
 {
 <#
 .SYNOPSIS
@@ -470,3 +470,5 @@ Export-ModuleMember -Function Remove-vLicense
 Export-ModuleMember -Function Add-vLicense
 Export-ModuleMember -Function Get-vLicense
 Export-ModuleMember -Function Get-VMFolderStruct
+Export-ModuleMember -Function Unmount-Datastore
+Export-ModuleMember -Function Detach-Datastore 
