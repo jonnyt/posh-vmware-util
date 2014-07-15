@@ -210,8 +210,7 @@ param (
         {
             if ($LicenseType.EditionKey -eq "vc")
             {
-                
-#$servInst = Get-View ServiceInstance
+                #$servInst = Get-View ServiceInstance
                 $Uuid = (Get-View ServiceInstance).Content.About.InstanceUuid
                 $licenseAssignMgr.UpdateAssignedLicense($Uuid, $LicenseKey,$null)
             }
@@ -262,20 +261,20 @@ param (
     }
 }
 
-Function Recurse-Children($folder, $hash)
+Function Recurse-Children($folder, $hash, $server)
 {
     foreach($child in $folder.ChildEntity)
     {
         if($child.Type -eq "Folder")
         {
             # Get the child view
-            $thisChildView = Get-View $child
+            $thisChildView = Get-View $child -Server $server
         
             # Append the root path and add it to the hash
-            $childRoot = $folderHash[$thisChildView.Parent.Value]
+            $childRoot = $folderHash[$thisChildView.Parent.ToString()]
             $newRoot = "$childRoot/$($thisChildView.Name)"
             $newRoot
-            $folderHash.Add($thisChildView.MoRef.Value,$newRoot)
+            $folderHash.Add($thisChildView.MoRef.ToString(),$newRoot)
             Recurse-Children($thisChildView,$hash)
         }
     }
@@ -283,26 +282,185 @@ Function Recurse-Children($folder, $hash)
 
 Function Get-VMFolderStruct
 {
+    Param(
+        [Parameter(ValueFromPipeline=$true)]$server
+    )
+
     # We want a hashtable of folderId and fullPath
     # Set-Variable -Name folderHash -value @{} -Option AllScope
     $folderHash = @{}
 
     # Start with the 'vm' root
-    $vmRoots = get-view -ViewType Folder -Filter @{"name" = "^vm$"}
+    $vmRoots = get-view -ViewType Folder -Filter @{"name" = "^vm$"} -Server $server
 
     # Get all the datacenters
-    $dcs = Get-View -ViewType Datacenter
+    $dcs = Get-View -ViewType Datacenter -Server $server
     foreach($dc in $dcs)
     {
-        $rootVmFolderView = Get-View -ViewType Folder -Filter @{"Parent" = "$($dc.MoRef.Value)"; "Name"="^vm$"}
-        $path = "/$($dc.name)/$($rootVmFolderView.name)"
-        $folderHash.Add($rootVmFolderView.MoRef.Value,$path)
+        $rootVmFolderView = Get-View -ViewType Folder -Filter @{"Parent" = "$($dc.MoRef.Value)"; "Name"="^vm$"} -Server $server
+        #$path = "/$($dc.name)/$($rootVmFolderView.name)"
+        #$folderHash.Add($rootVmFolderView.MoRef.ToString(),$path)
         # for each subfolder in the VM root, call a recursive while loop to get the children
         Recurse-Children -folder $rootVmFolderView -hash $folderHash
     }
     # Put the folder hashtable out on the pipeline
     $folderHash
 }
+
+Function Detach-DatastoreFromHost
+{
+	[CmdletBinding()]
+	Param
+    (
+		[Parameter(ValueFromPipeline=$true)]$Datastore,
+        $vmHost
+
+	)
+    Process
+    {
+        $hostview = Get-View $VMHost.Key
+		$StorageSys = Get-View $HostView.ConfigManager.StorageSystem
+		$devices = $StorageSys.StorageDeviceInfo.ScsiLun
+		Foreach ($device in $devices) 
+        {
+		    if ($device.canonicalName -eq $hostviewDSDiskName) 
+            {
+			    $LunUUID = $Device.Uuid
+				Write-Host "Detaching LUN $($Device.CanonicalName) from host $($hostview.Name)..."
+				$StorageSys.DetachScsiLun($LunUUID);
+            }
+		}
+    }
+}
+
+Function Detach-Datastore 
+{
+<#
+.SYNOPSIS
+Detach a datastore LUN device.  If no host supplied will detach from all connected hosts.
+  
+.DESCRIPTION
+Detach a datastore LUN device.  If no host supplied will detach from all connected hosts.
+  
+.PARAMETER  Datastore
+.PARAMETER  VMHost
+  
+.NOTES
+Author: Jonathon Taylor
+#>
+	[CmdletBinding()]
+	Param
+    (
+		[Parameter(ValueFromPipeline=$true)]$Datastore,
+        $vmHost
+	)
+	Process 
+    {
+		if (-not $Datastore) 
+        {
+			Write-Host "No Datastore defined as input"
+			Exit
+		}
+		Foreach ($ds in $Datastore) 
+        {
+			$hostviewDSDiskName = $ds.ExtensionData.Info.vmfs.extent[0].Diskname
+			if ($ds.ExtensionData.Host) 
+            {
+                if ($vmHost)
+                {
+                    Foreach ($thisVMHost in $vmHost)
+                    {
+                        $vmHostRef = $ds.ExtensionData.Host | Where-Object {$_.Key.Value -eq $thisVMHost.ExtensionData.MoRef.value}
+                        Detach-DatastoreFromHost -Datastore $ds -vmHost $vmHostRef
+                    }
+                }
+                else
+                {
+    				$attachedHosts = $ds.ExtensionData.Host
+				    Foreach ($vmHostRef in $attachedHosts)
+                    {
+                        Detach-DatastoreFromHost -Datastore $ds -vmHost $vmHostRef
+                    }
+
+                }
+            }        
+		}
+	}
+}
+
+Function Unmount-DatastoreFromHost
+{
+	[CmdletBinding()]
+	Param 
+    (
+		[Parameter(ValueFromPipeline=$true)]
+		$Datastore,
+        $VMHost
+	)
+	Process 
+    {
+        $hostview = Get-View $VMHost.Key
+        $StorageSys = Get-View $HostView.ConfigManager.StorageSystem
+        Write-Host "Unmounting VMFS Datastore $($Datastore.Name) from host $($hostview.Name)..."
+        $StorageSys.UnmountVmfsVolume($Datastore.ExtensionData.Info.vmfs.uuid);
+    }
+}
+
+Function Unmount-Datastore 
+{
+<#
+.SYNOPSIS
+Unmounts a datastore.  If no host supplied will unmount from all connected hosts.
+  
+.DESCRIPTION
+Unmounts a datastore.  If no host supplied will unmount from all connected hosts.
+  
+.PARAMETER  Datastore
+.PARAMETER  VMHost
+  
+.NOTES
+Author: Jonathon Taylor
+#>
+	[CmdletBinding()]
+	Param 
+    (
+		[Parameter(ValueFromPipeline=$true)]
+		$Datastore,
+        $VMHost
+	)
+	Process 
+    {
+		if (-not $Datastore) 
+        {
+			Write-Host "No Datastore defined as input"
+			Exit
+		}
+		Foreach ($ds in $Datastore) 
+        {
+			$hostviewDSDiskName = $ds.ExtensionData.Info.vmfs.extent[0].Diskname
+			if ($ds.ExtensionData.Host)
+            {
+                if ($VMHost)
+                {
+                    Foreach ($thisVMHost in $VMHost)
+                    {
+                        $vmHostRef = $ds.ExtensionData.Host | Where-Object {$_.Key.Value -eq $thisVMHost.ExtensionData.MoRef.value}
+                        Unmount-DatastoreFromHost -Datastore $ds -vmHost $vmHostRef
+                    }
+                }
+                else
+                {
+			    	$attachedHosts = $ds.ExtensionData.Host
+				    Foreach ($vmHostRef in $attachedHosts) 
+                    {
+                        Unmount-DatastoreFromHost -Datastore $ds -vmHost $vmHostRef
+				    }
+                }
+			}
+		}
+	}
+}
+
 
 Export-ModuleMember -Function Connect-VI
 Export-ModuleMember -Function Get-ViSession
