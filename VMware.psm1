@@ -15,7 +15,8 @@
     #>
     Param (
         [Parameter(ValueFromPipeline=$true)]$vchosts,
-        [Parameter(Mandatory=$False)][switch]$disconnectExisting = [switch]::$false
+        [Parameter(Mandatory=$False)][switch]$disconnectExisting = [switch]::$false,
+        [Parameter(Mandatory=$False)]$credential
     )
 	Write-Debug "Connecting to VIServers";
 	#  Clear out any existing session
@@ -26,11 +27,24 @@
 	}
 		
     # Set some configuration defaults
-    Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false
-    Set-PowerCLIConfiguration -DefaultVIServerMode Multiple -Confirm:$false
+    Try
+    {
+        Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false -ErrorAction SilentlyContinue
+        Set-PowerCLIConfiguration -DefaultVIServerMode Multiple -Confirm:$false -ErrorAction SilentlyContinue
+    }
+    Catch
+    {
+    }
 
 	# Connect to the appropriate vCenter Servers
-	Connect-VIServer $vchosts -ErrorAction:Stop | Out-Null
+    if($credential -eq $null)
+    {
+	    Connect-VIServer $vchosts -ErrorAction:Stop | Out-Null
+    }
+    else
+    {
+        Connect-VIServer $vchosts -Credential $credential -ErrorAction:Stop | Out-Null
+    }
     Write-Debug "Connected to VIServer $defaultVIServers";
 }
 
@@ -569,6 +583,36 @@ Function Attach-Datastore {
 	}
 }
 
+Function Get-DatastoreFromExtent
+{
+	[CmdletBinding()]
+	Param (
+		[Parameter(ValueFromPipeline=$true)]
+		$ExtentRegEx
+	)
+	Process
+    {
+        $viewMatches = @()
+        $dsViews = Get-View -ViewType DataStore
+        foreach($dsView in $dsViews)
+        {
+            $extents = $dsView.Info.Vmfs.Extent
+            foreach($extent in $extents)
+            {
+                if($extent.DiskName -match $ExtentRegEx)
+                {
+                    $viewMatches += ,$dsView
+                }
+            }
+        }
+        $viewMatches
+    }
+}
+
+
+
+#
+
 
 Export-ModuleMember -Function Add-vLicense
 Export-ModuleMember -Function Attach-Datastore
@@ -583,3 +627,4 @@ Export-ModuleMember -Function Mount-Datastore
 Export-ModuleMember -Function Remove-vLicense
 Export-ModuleMember -Function Set-SIOC
 Export-ModuleMember -Function Unmount-Datastore
+Export-ModuleMember -Function Get-DatastoreFromExtent
