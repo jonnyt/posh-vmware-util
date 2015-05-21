@@ -118,7 +118,6 @@ Function Disconnect-ViSession
     }
 }
 
-
 Function Set-SIOC()
 {
     Param(
@@ -140,7 +139,7 @@ Function Set-SIOC()
     }
 }
 
-function Get-vLicense{
+Function Get-vLicense{
 <#
 .SYNOPSIS
 Function to show all licenses  in vCenter
@@ -181,7 +180,7 @@ Date: 2012-03-28
     $licenses
 }
  
-function Add-vLicense
+Function Add-vLicense
 {
 <#
 .SYNOPSIS
@@ -244,8 +243,7 @@ param (
     }  
 }
  
- 
-function Remove-vLicense
+Function Remove-vLicense
 {
 <#
 .SYNOPSIS
@@ -275,21 +273,30 @@ param (
     }
 }
 
-Function Recurse-Children($folder, $hash, $server)
+Function Recurse-Children($folder, $folderHash, $vCenterServer)
 {
     foreach($child in $folder.ChildEntity)
     {
         if($child.Type -eq "Folder")
         {
             # Get the child view
-            $thisChildView = Get-View $child -Server $server
+            $thisChildView = Get-View $child -Server $vCenterServer | Select-Object -First 1
         
             # Append the root path and add it to the hash
             $childRoot = $folderHash[$thisChildView.Parent.ToString()]
-            $newRoot = "$childRoot/$($thisChildView.Name)"
-            $newRoot
+            if($childRoot -eq $null)
+            {
+                $newRoot = "/$($thisChildView.Name)"
+            }
+            else
+            {
+                $newRoot = "$childRoot/$($thisChildView.Name)"
+            }
+
+            Write-Debug ("Adding $($thisChildView.MoRef.ToString()),$newRoot for server $vCenterServer")
+            
             $folderHash.Add($thisChildView.MoRef.ToString(),$newRoot)
-            Recurse-Children($thisChildView,$hash)
+            Recurse-Children -folder $thisChildView -folderHash $folderHash -vCenterServer $vCenterServer
         }
     }
 }
@@ -297,28 +304,28 @@ Function Recurse-Children($folder, $hash, $server)
 Function Get-VMFolderStruct
 {
     Param(
-        [Parameter(ValueFromPipeline=$true)]$server
+        [Parameter(ValueFromPipeline=$true)]$vCenterServer
     )
 
     # We want a hashtable of folderId and fullPath
     # Set-Variable -Name folderHash -value @{} -Option AllScope
-    $folderHash = @{}
+    $thisFolderHash = @{}
 
     # Start with the 'vm' root
-    $vmRoots = get-view -ViewType Folder -Filter @{"name" = "^vm$"} -Server $server
+    $vmRoots = get-view -ViewType Folder -Filter @{"name" = "^vm$"} -Server $vCenterServer
 
     # Get all the datacenters
-    $dcs = Get-View -ViewType Datacenter -Server $server
+    $dcs = Get-View -ViewType Datacenter -Server $vCenterServer
     foreach($dc in $dcs)
     {
-        $rootVmFolderView = Get-View -ViewType Folder -Filter @{"Parent" = "$($dc.MoRef.Value)"; "Name"="^vm$"} -Server $server
+        $rootVmFolderView = Get-View -ViewType Folder -Filter @{"Parent" = "$($dc.MoRef.Value)"; "Name"="^vm$"} -Server $vCenterServer
         #$path = "/$($dc.name)/$($rootVmFolderView.name)"
         #$folderHash.Add($rootVmFolderView.MoRef.ToString(),$path)
         # for each subfolder in the VM root, call a recursive while loop to get the children
-        Recurse-Children -folder $rootVmFolderView -hash $folderHash
+        Recurse-Children -folder $rootVmFolderView -folderHash $thisFolderHash -vCenterServer $vCenterServer
     }
     # Put the folder hashtable out on the pipeline
-    $folderHash
+    $thisFolderHash
 }
 
 Function Detach-DatastoreFromHost
@@ -609,10 +616,89 @@ Function Get-DatastoreFromExtent
     }
 }
 
+Function Get-HostSatpPSPDefault
+{
+	[CmdletBinding()]
+	Param (
+		[Parameter(ValueFromPipeline=$true)]$vmHost,
+        [Parameter(Mandatory=$true)][ValidateSet("VMW_SATP_DEFAULT_AA","VMW_SATP_DEFAULT_AP","VMW_SATP_ALUA")][string]$satp
+	)
+	Process
+    {
+        $esxcli = Get-EsxCli -VMHost (Get-VMHost -id $vmHost.MoRef)
+        $currentPolicy = $esxcli.storage.nmp.satp.list() | Where-Object {$_.Name -eq $satp}
+        $currentPolicy.DefaultPSP
+    }
+}
 
+Function Set-HostSatpPSPDefault
+{
+	[CmdletBinding()]
+	Param (
+		[Parameter(ValueFromPipeline=$true)]$vmHost,
+        [Parameter(Mandatory=$true)][ValidateSet("VMW_PSP_MRU","VMW_PSP_FIXED","VMW_PSP_RR")][string]$defaultPSP,
+        [Parameter(Mandatory=$true)][ValidateSet("VMW_SATP_DEFAULT_AA","VMW_SATP_DEFAULT_AP","VMW_SATP_ALUA")][string]$satp
+	)
+	Process
+    {
+        $esxcli = Get-EsxCli -VMHost (Get-VMHost -id $vmHost.MoRef)
+        $esxcli.storage.nmp.satp.set($false,$defaultPSP,$satp)
+    }
+}
 
-#
+Function Set-LunPSP
+{
+	[CmdletBinding()]
+	Param (
+		[Parameter(ValueFromPipeline=$true)]$vmHost,
+        [Parameter(Mandatory=$true)][ValidateSet("VMW_PSP_MRU","VMW_PSP_FIXED","VMW_PSP_RR")][string]$psp,
+        [Parameter(Mandatory=$true)][string]$lunCN
+	)
+	Process
+    {
+        $esxcli = Get-EsxCli -VMHost (Get-VMHost -id $vmHost.MoRef)
+        $esxcli.storage.nmp.device.set($false,$lunCN,$psp)
+    }
+}
 
+Function Set-HAAdmissionControlPolicy
+{
+<#
+.SYNOPSIS
+Set the HA admission control policy and related parameters.
+
+#>
+[CmdletBinding(DefaultParameterSetName="PercentageBased")]
+    param(
+        [Parameter(ParameterSetName="PercentageBased",Position=0,Mandatory=$true,ValueFromPipeline=$true)]
+        [Parameter(ParameterSetName="SlotsBased",Position=0,Mandatory=$true,ValueFromPipeline=$true)][VMware.VimAutomation.ViCore.Impl.V1.Inventory.ComputeResourceImpl]$cluster,
+        [Parameter(ParameterSetName="PercentageBased",Mandatory=$false)][int]$percentCPU=25,
+        [Parameter(ParameterSetName="PercentageBased",Mandatory=$false)][int]$percentMem=25,
+        [Parameter(ParameterSetName="SlotsBased",Mandatory=$false)][int]$hostFailuresToTolerate=1
+    )
+
+    $cluSpec = New-Object VMware.Vim.ClusterConfigSpecEx
+    $cluSpec.DasConfig = New-Object VMware.Vim.ClusterDasConfigInfo
+    $cluSpec.DasConfig.AdmissionControlPolicy = New-Object VMware.Vim.ClusterFailoverResourcesAdmissionControlPolicy
+    $cluSpec.Dasconfig.AdmissionControlEnabled = $true
+    
+    switch ($PSCmdlet.ParameterSetName)
+    {
+        "PercentageBased"
+        {
+            $cluSpec.DasConfig.AdmissionControlPolicy.CpuFailoverResourcesPercent = $percentCPU
+            $cluSpec.DasConfig.AdmissionControlPolicy.MemoryFailoverResourcesPercent = $percentMem
+        }
+        "SlotsBased"
+        {
+            Throw Exception "Not Implemented"
+        }
+    }
+
+    $clusterView = Get-View $cluster
+    $clusterView.ReconfigureComputeResource($cluSpec,$true)
+
+}
 
 Export-ModuleMember -Function Add-vLicense
 Export-ModuleMember -Function Attach-Datastore
@@ -620,11 +706,15 @@ Export-ModuleMember -Function Connect-VI
 Export-ModuleMember -Function Detach-Datastore
 Export-ModuleMember -Function Disconnect-ViSession
 Export-ModuleMember -Function Get-DatastoreMountInfo
+Export-ModuleMember -Function Get-HostSatpPSPDefault
 Export-ModuleMember -Function Get-ViSession
 Export-ModuleMember -Function Get-vLicense
 Export-ModuleMember -Function Get-VMFolderStruct
 Export-ModuleMember -Function Mount-Datastore
 Export-ModuleMember -Function Remove-vLicense
+Export-ModuleMember -Function Set-HostSatpPSPDefault
+Export-ModuleMember -Function Set-LunPSP
 Export-ModuleMember -Function Set-SIOC
+Export-ModuleMember -Function Set-HAAdmissionControlPolicy
 Export-ModuleMember -Function Unmount-Datastore
 Export-ModuleMember -Function Get-DatastoreFromExtent
