@@ -720,13 +720,13 @@ Function Test-VMKPing
 
     foreach($thisVMHost in $vmHost)
     {
-        Write-Host "Attempting to test $($thisVMHost.Name)"
+        Write-Verbose "Attempting to test $($thisVMHost.Name)"
     
         # Enable ssh
         $thisVMHost | Get-VMHostService | ? {$_.label -eq 'SSH'} | Start-VMHostService | Out-Null
 
         # Get a session
-        $sshSession = New-SshSession -ComputerName $($thisVMHost.Name) -KeyFile $sshKeyPath -Verbose -Credential $sshKeyCred
+        $sshSession = New-SshSession -ComputerName $($thisVMHost.Name) -KeyFile $sshKeyPath -Credential $sshKeyCred
         $res = Invoke-SSHCommand -SSHSession $sshSession -Command "vmkping $pingAddress"
 
         # Stop SSH
