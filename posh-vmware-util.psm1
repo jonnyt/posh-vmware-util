@@ -700,21 +700,41 @@ Set the HA admission control policy and related parameters.
 
 }
 
-Export-ModuleMember -Function Add-vLicense
-Export-ModuleMember -Function Attach-Datastore
-Export-ModuleMember -Function Connect-VI
-Export-ModuleMember -Function Detach-Datastore
-Export-ModuleMember -Function Disconnect-ViSession
-Export-ModuleMember -Function Get-DatastoreMountInfo
-Export-ModuleMember -Function Get-HostSatpPSPDefault
-Export-ModuleMember -Function Get-ViSession
-Export-ModuleMember -Function Get-vLicense
-Export-ModuleMember -Function Get-VMFolderStruct
-Export-ModuleMember -Function Mount-Datastore
-Export-ModuleMember -Function Remove-vLicense
-Export-ModuleMember -Function Set-HostSatpPSPDefault
-Export-ModuleMember -Function Set-LunPSP
-Export-ModuleMember -Function Set-SIOC
-Export-ModuleMember -Function Set-HAAdmissionControlPolicy
-Export-ModuleMember -Function Unmount-Datastore
-Export-ModuleMember -Function Get-DatastoreFromExtent
+Function Test-VMKPing
+{
+    Param(
+        [Parameter (Mandatory=$true)]$vmHost,
+        [Parameter (Mandatory=$true)]$sshKeyPath,
+        [Parameter (Mandatory=$true)]$pingAddress
+
+    )
+
+    $ErrorActionPreference = 'stop'
+    $InformationPreference = 'continue'
+    $WarningPreference = 'continue'
+
+    $userName = "root"
+    $sshKeyCred = New-Object -TypeName System.Management.Automation.PSCredential -argumentList $userName,(New-Object System.Security.SecureString)
+
+    Import-Module posh-ssh
+
+    foreach($thisVMHost in $vmHost)
+    {
+        Write-Host "Attempting to test $($thisVMHost.Name)"
+    
+        # Enable ssh
+        $thisVMHost | Get-VMHostService | ? {$_.label -eq 'SSH'} | Start-VMHostService | Out-Null
+
+        # Get a session
+        $sshSession = New-SshSession -ComputerName $($thisVMHost.Name) -KeyFile $sshKeyPath -Verbose -Credential $sshKeyCred
+        $res = Invoke-SSHCommand -SSHSession $sshSession -Command "vmkping $pingAddress"
+
+        # Stop SSH
+        $thisVMHost | Get-VMHostService | ? {$_.label -eq 'SSH'} | Stop-VMHostService -Confirm:$false | Out-Null
+
+        $res.Output
+
+    }
+}
+
+Export-ModuleMember -Function *
