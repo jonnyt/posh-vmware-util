@@ -705,7 +705,8 @@ Function Test-VMKPing
     Param(
         [Parameter (Mandatory=$true)]$vmHost,
         [Parameter (Mandatory=$true)]$sshKeyPath,
-        [Parameter (Mandatory=$true)]$pingAddress
+        [Parameter (Mandatory=$true)]$pingAddress,
+        [Parameter (Mandatory=$false)]$count = 3
 
     )
 
@@ -727,7 +728,7 @@ Function Test-VMKPing
 
         # Get a session
         $sshSession = New-SshSession -ComputerName $($thisVMHost.Name) -KeyFile $sshKeyPath -Credential $sshKeyCred
-        $res = Invoke-SSHCommand -SSHSession $sshSession -Command "vmkping $pingAddress"
+        $res = Invoke-SSHCommand -SSHSession $sshSession -Command "vmkping -c $count $pingAddress"
 
         # Stop SSH
         $thisVMHost | Get-VMHostService | ? {$_.label -eq 'SSH'} | Stop-VMHostService -Confirm:$false | Out-Null
