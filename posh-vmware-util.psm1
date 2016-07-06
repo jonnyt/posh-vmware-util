@@ -330,7 +330,7 @@ Function Get-VMFolderStruct
 
 Function Detach-DatastoreFromHost
 {
-	[CmdletBinding()]
+	[cmdletbinding(SupportsShouldProcess=$True)]
 	Param
     (
 		[Parameter(ValueFromPipeline=$true)]$Datastore,
@@ -633,7 +633,7 @@ Function Get-HostSatpPSPDefault
 
 Function Set-HostSatpPSPDefault
 {
-	[CmdletBinding()]
+	[cmdletbinding(SupportsShouldProcess=$True)]
 	Param (
 		[Parameter(ValueFromPipeline=$true)]$vmHost,
         [Parameter(Mandatory=$true)][ValidateSet("VMW_PSP_MRU","VMW_PSP_FIXED","VMW_PSP_RR")][string]$defaultPSP,
@@ -642,13 +642,20 @@ Function Set-HostSatpPSPDefault
 	Process
     {
         $esxcli = Get-EsxCli -VMHost (Get-VMHost -id $vmHost.MoRef)
-        $esxcli.storage.nmp.satp.set($false,$defaultPSP,$satp)
+        if(!$WhatIfPreference)
+        {
+            $esxcli.storage.nmp.satp.set($false,$defaultPSP,$satp)
+        }
+        else
+        {
+            Write-Host "What if:  Performing the operation `"`$esxcli.storage.nmp.satp.set(`$false,$defaultPSP,$satp) on $($vmHost.Name)`"" 
+        }
     }
 }
 
 Function Set-LunPSP
 {
-	[CmdletBinding()]
+	[CmdletBinding(SupportsShouldProcess=$True)]
 	Param (
 		[Parameter(ValueFromPipeline=$true)]$vmHost,
         [Parameter(Mandatory=$true)][ValidateSet("VMW_PSP_MRU","VMW_PSP_FIXED","VMW_PSP_RR")][string]$psp,
@@ -657,7 +664,14 @@ Function Set-LunPSP
 	Process
     {
         $esxcli = Get-EsxCli -VMHost (Get-VMHost -id $vmHost.MoRef)
-        $esxcli.storage.nmp.device.set($false,$lunCN,$psp)
+        if(!$WhatIfPreference)
+        {
+            $esxcli.storage.nmp.device.set($false,$lunCN,$psp)
+        }
+        else
+        {
+            Write-Host "What if:  Performing the operation `"`$esxcli.storage.nmp.device.set(`$false,$lunCN,$psp) on $($vmHost.Name)`"" 
+        }
     }
 }
 
@@ -668,7 +682,7 @@ Function Set-HAAdmissionControlPolicy
 Set the HA admission control policy and related parameters.
 
 #>
-[CmdletBinding(DefaultParameterSetName="PercentageBased")]
+[CmdletBinding(DefaultParameterSetName="PercentageBased",SupportsShouldProcess=$True)]
     param(
         [Parameter(ParameterSetName="PercentageBased",Position=0,Mandatory=$true,ValueFromPipeline=$true)]
         [Parameter(ParameterSetName="SlotsBased",Position=0,Mandatory=$true,ValueFromPipeline=$true)][VMware.VimAutomation.ViCore.Impl.V1.Inventory.ComputeResourceImpl]$cluster,
@@ -696,8 +710,14 @@ Set the HA admission control policy and related parameters.
     }
 
     $clusterView = Get-View $cluster
-    $clusterView.ReconfigureComputeResource($cluSpec,$true)
-
+    if(!$WhatIfPreference)
+    {
+        $clusterView.ReconfigureComputeResource($cluSpec,$true)
+    }
+    else
+    {
+        Write-Host "What if:  Performing the operation `"`ReconfigureComputeResource($cluSpec,$true) on $($cluster.Name)`"" 
+    }
 }
 
 Function Test-VMKPing
