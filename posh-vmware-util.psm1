@@ -1,5 +1,4 @@
-﻿Function Connect-VI()
-{
+﻿Function Connect-VI() {
     <#
         .SYNOPSIS
             Connects to one more more vCenter sessions
@@ -18,38 +17,32 @@
         [Parameter(Mandatory=$False)][switch]$disconnectExisting = [switch]::$false,
         [Parameter(Mandatory=$False)]$credential
     )
-	Write-Debug "Connecting to VIServers";
-	#  Clear out any existing session
-	if (($defaultVIServer -ne $null -or $defaultVIServers.length -gt 0) -and $disconnectExisting.IsPresent)
-	{
-		Write-Debug "Existing connections found ($defaultVIServers), disconnecting";
-		Disconnect-VIServer * -Confirm:$false -ErrorAction SilentlyContinue
-	}
+    Write-Debug "Connecting to VIServers";
+    #  Clear out any existing session
+    if (($defaultVIServer -ne $null -or $defaultVIServers.length -gt 0) -and $disconnectExisting.IsPresent) {
+        Write-Debug "Existing connections found ($defaultVIServers), disconnecting";
+        Disconnect-VIServer * -Confirm:$false -ErrorAction SilentlyContinue
+    }
 		
     # Set some configuration defaults
-    Try
-    {
+    Try {
         Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false -ErrorAction SilentlyContinue
         Set-PowerCLIConfiguration -DefaultVIServerMode Multiple -Confirm:$false -ErrorAction SilentlyContinue
     }
-    Catch
-    {
+    Catch {
     }
 
-	# Connect to the appropriate vCenter Servers
-    if($credential -eq $null)
-    {
-	    Connect-VIServer $vchosts -ErrorAction:Stop | Out-Null
+    # Connect to the appropriate vCenter Servers
+    if($credential -eq $null) {
+        Connect-VIServer $vchosts -ErrorAction:Stop | Out-Null
     }
-    else
-    {
+    else {
         Connect-VIServer $vchosts -Credential $credential -ErrorAction:Stop | Out-Null
     }
     Write-Debug "Connected to VIServer $defaultVIServers";
 }
 
-Function Get-ViSession 
-{
+Function Get-ViSession {
     <#
         .SYNOPSIS
             Lists vCenter Sessions.
@@ -74,19 +67,18 @@ Function Get-ViSession
             LastActiveTime = ($_.LastActiveTime).ToLocalTime()
            
         }
-            If ($_.Key -eq $SessionMgr.CurrentSession.Key) {
-                $Session | Add-Member -MemberType NoteProperty -Name Status -Value "Current Session"
-            } Else {
-                $Session | Add-Member -MemberType NoteProperty -Name Status -Value "Idle"
-            }
-            $Session | Add-Member -MemberType NoteProperty -Name IdleMinutes -Value ([Math]::Round(((Get-Date) – ($_.LastActiveTime).ToLocalTime()).TotalMinutes))
-    $AllSessions += $Session
+        If ($_.Key -eq $SessionMgr.CurrentSession.Key) {
+            $Session | Add-Member -MemberType NoteProperty -Name Status -Value "Current Session"
+        } Else {
+            $Session | Add-Member -MemberType NoteProperty -Name Status -Value "Idle"
+        }
+        $Session | Add-Member -MemberType NoteProperty -Name IdleMinutes -Value ([Math]::Round(((Get-Date) – ($_.LastActiveTime).ToLocalTime()).TotalMinutes))
+        $AllSessions += $Session
     }
     $AllSessions
 }
 
-Function Disconnect-ViSession 
-{
+Function Disconnect-ViSession {
     <#
         .SYNOPSIS
             Disconnects a connected vCenter Session.
@@ -108,8 +100,7 @@ Function Disconnect-ViSession
         [Parameter(ValueFromPipeline=$true)]
         $SessionList
     )
-    Process 
-    {
+    Process {
         $SessionMgr = Get-View $DefaultViserver.ExtensionData.Client.ServiceContent.SessionManager
         $SessionList | Foreach {
             Write "Disconnecting Session for $($_.Username) which has been active since $($_.LoginTime)"
@@ -118,19 +109,16 @@ Function Disconnect-ViSession
     }
 }
 
-Function Set-SIOC()
-{
+Function Set-SIOC() {
     Param(
         [Parameter(Mandatory=$True)]$dataStores,
         [Parameter(Mandatory=$False)][switch]$enabled=[switch]$False
     )
     $siocSpec = New-Object VMware.Vim.StorageIORMConfigSpec
-    if($enabled.IsPresent)
-    {
+    if($enabled.IsPresent) {
         $siocspec.Enabled = $True
     }
-    else
-    {
+    else {
         $siocspec.Enabled = $False
     }
 
@@ -140,7 +128,7 @@ Function Set-SIOC()
 }
 
 Function Get-vLicense{
-<#
+    <#
 .SYNOPSIS
 Function to show all licenses  in vCenter
   
@@ -157,7 +145,7 @@ Date: 2012-03-28
         [Parameter(ValueFromPipeline=$True, HelpMessage="Enter the license key or object")]$LicenseKey = $null,
         [Switch]$showUnused,
         [Switch]$showEval
-        )
+    )
     $servInst = Get-View ServiceInstance
     $licenceMgr = Get-View $servInst.Content.licenseManager
     if ($showUnused -and $showEval){
@@ -180,9 +168,8 @@ Date: 2012-03-28
     $licenses
 }
  
-Function Add-vLicense
-{
-<#
+Function Add-vLicense {
+    <#
 .SYNOPSIS
 Add New Licenses to the vCenter license manager
   
@@ -195,46 +182,37 @@ Use this function to add licenses  and assing to either the vcenter or the hosts
 Author: Niklas Akerlund / RTS
 Date: 2012-03-28
 #>
-param (
-    $VMHost ,
-    [Parameter(ValueFromPipeline=$True)]$License = $null,
-    [string]$LicenseKey = "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX",
-    [switch]$AddKey
+    param (
+        $VMHost ,
+        [Parameter(ValueFromPipeline=$True)]$License = $null,
+        [string]$LicenseKey = "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX",
+        [switch]$AddKey
     )
     $LicenseMgr = Get-View -Id 'LicenseManager-LicenseManager'
     $LicenseAssignMgr = Get-View -Id 'LicenseAssignmentManager-LicenseAssignmentManager'
-    if($License)
-    {
+    if($License) {
         $LicenseKey = $License.LicenseKey
         $LicenseType = $LicenseMgr.DecodeLicense($LicenseKey)
     }
-    else
-    {
+    else {
         $LicenseType = $LicenseMgr.DecodeLicense($LicenseKey)
     }
      
-    if ($LicenseType) 
-    {
-        if ($AddKey)
-        {
+    if ($LicenseType) {
+        if ($AddKey) {
             $LicenseMgr.AddLicense($LicenseKey, $null)
         }
-        else
-        {
-            if ($LicenseType.EditionKey -eq "vc")
-            {
+        else {
+            if ($LicenseType.EditionKey -eq "vc") {
                 #$servInst = Get-View ServiceInstance
                 $Uuid = (Get-View ServiceInstance).Content.About.InstanceUuid
                 $licenseAssignMgr.UpdateAssignedLicense($Uuid, $LicenseKey,$null)
             }
-            else
-            {
+            else {
                 $key = Get-vLicense -LicenseKey $LicenseKey
-                if($key  -and ($key.Total-$key.Used) -lt (get-vmhost $VMHost | get-view).Hardware.CpuInfo.NumCpuPackages)
-                {
+                if($key  -and ($key.Total-$key.Used) -lt (get-vmhost $VMHost | get-view).Hardware.CpuInfo.NumCpuPackages) {
                     Write-Host "Not Enough licenses left"
-                } else
-                {
+                } else {
                     $Uuid = (Get-VMhost $VMHost | Get-View).MoRef.Value
                     $licenseAssignMgr.UpdateAssignedLicense($Uuid, $LicenseKey,$null)
                 }
@@ -243,9 +221,8 @@ param (
     }  
 }
  
-Function Remove-vLicense
-{
-<#
+Function Remove-vLicense {
+    <#
 .SYNOPSIS
 Function to remove a licenses that is not in use in vCenter
   
@@ -258,38 +235,31 @@ Use this function to remove a license
 Author: Niklas Akerlund / RTS
 Date: 2012-03-28
 #>
-param (
-    [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$True, HelpMessage="Enter the key or keyobject to remove")]$License
+    param (
+        [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$True, HelpMessage="Enter the key or keyobject to remove")]$License
     )
     $LicObj = Get-vLicense $License 
-    if($LicObj.Used -eq 0)
-    {
+    if($LicObj.Used -eq 0) {
         $LicenseMgr = Get-View -Id 'LicenseManager-LicenseManager'
         $LicenseMgr.RemoveLicense($LicObj.LicenseKey)
     }
-    else
-    {
+    else {
         Write-Host " The license is assigned and cannot be removed"
     }
 }
 
-Function Recurse-Children($folder, $folderHash, $vCenterServer)
-{
-    foreach($child in $folder.ChildEntity)
-    {
-        if($child.Type -eq "Folder")
-        {
+Function Recurse-Children($folder, $folderHash, $vCenterServer) {
+    foreach($child in $folder.ChildEntity) {
+        if($child.Type -eq "Folder") {
             # Get the child view
             $thisChildView = Get-View $child -Server $vCenterServer | Select-Object -First 1
         
             # Append the root path and add it to the hash
             $childRoot = $folderHash[$thisChildView.Parent.ToString()]
-            if($childRoot -eq $null)
-            {
+            if($childRoot -eq $null) {
                 $newRoot = "/$($thisChildView.Name)"
             }
-            else
-            {
+            else {
                 $newRoot = "$childRoot/$($thisChildView.Name)"
             }
 
@@ -301,8 +271,7 @@ Function Recurse-Children($folder, $folderHash, $vCenterServer)
     }
 }
 
-Function Get-VMFolderStruct
-{
+Function Get-VMFolderStruct {
     Param(
         [Parameter(ValueFromPipeline=$true)]$vCenterServer
     )
@@ -316,8 +285,7 @@ Function Get-VMFolderStruct
 
     # Get all the datacenters
     $dcs = Get-View -ViewType Datacenter -Server $vCenterServer
-    foreach($dc in $dcs)
-    {
+    foreach($dc in $dcs) {
         $rootVmFolderView = Get-View -ViewType Folder -Filter @{"Parent" = "$($dc.MoRef.Value)"; "Name"="^vm$"} -Server $vCenterServer
         #$path = "/$($dc.name)/$($rootVmFolderView.name)"
         #$folderHash.Add($rootVmFolderView.MoRef.ToString(),$path)
@@ -328,35 +296,30 @@ Function Get-VMFolderStruct
     $thisFolderHash
 }
 
-Function Detach-DatastoreFromHost
-{
-	[cmdletbinding(SupportsShouldProcess=$True)]
-	Param
+Function Detach-DatastoreFromHost {
+    [cmdletbinding(SupportsShouldProcess=$True)]
+    Param
     (
-		[Parameter(ValueFromPipeline=$true)]$Datastore,
+        [Parameter(ValueFromPipeline=$true)]$Datastore,
         $vmHost
 
-	)
-    Process
-    {
+    )
+    Process {
         $hostview = Get-View $VMHost.Key
-		$StorageSys = Get-View $HostView.ConfigManager.StorageSystem
-		$devices = $StorageSys.StorageDeviceInfo.ScsiLun
-		Foreach ($device in $devices) 
-        {
-		    if ($device.canonicalName -eq $hostviewDSDiskName) 
-            {
-			    $LunUUID = $Device.Uuid
-				Write-Host "Detaching LUN $($Device.CanonicalName) from host $($hostview.Name)..."
-				$StorageSys.DetachScsiLun($LunUUID);
+        $StorageSys = Get-View $HostView.ConfigManager.StorageSystem
+        $devices = $StorageSys.StorageDeviceInfo.ScsiLun
+        Foreach ($device in $devices) {
+            if ($device.canonicalName -eq $hostviewDSDiskName) {
+                $LunUUID = $Device.Uuid
+                Write-Host "Detaching LUN $($Device.CanonicalName) from host $($hostview.Name)..."
+                $StorageSys.DetachScsiLun($LunUUID);
             }
-		}
+        }
     }
 }
 
-Function Detach-Datastore 
-{
-<#
+Function Detach-Datastore {
+    <#
 .SYNOPSIS
 Detach a datastore LUN device.  If no host supplied will detach from all connected hosts.
   
@@ -369,57 +332,47 @@ Detach a datastore LUN device.  If no host supplied will detach from all connect
 .NOTES
 Author: Jonathon Taylor
 #>
-	[CmdletBinding()]
-	Param
+    [CmdletBinding()]
+    Param
     (
-		[Parameter(ValueFromPipeline=$true)]$Datastore,
+        [Parameter(ValueFromPipeline=$true)]$Datastore,
         $vmHost
-	)
-	Process 
-    {
-		if (-not $Datastore) 
-        {
-			Write-Host "No Datastore defined as input"
-			Exit
-		}
-		Foreach ($ds in $Datastore) 
-        {
-			$hostviewDSDiskName = $ds.ExtensionData.Info.vmfs.extent[0].Diskname
-			if ($ds.ExtensionData.Host) 
-            {
-                if ($vmHost)
-                {
-                    Foreach ($thisVMHost in $vmHost)
-                    {
+    )
+    Process {
+        if (-not $Datastore) {
+            Write-Host "No Datastore defined as input"
+            Exit
+        }
+        Foreach ($ds in $Datastore) {
+            $hostviewDSDiskName = $ds.ExtensionData.Info.vmfs.extent[0].Diskname
+            if ($ds.ExtensionData.Host) {
+                if ($vmHost) {
+                    Foreach ($thisVMHost in $vmHost) {
                         $vmHostRef = $ds.ExtensionData.Host | Where-Object {$_.Key.Value -eq $thisVMHost.ExtensionData.MoRef.value}
                         Detach-DatastoreFromHost -Datastore $ds -vmHost $vmHostRef
                     }
                 }
-                else
-                {
-    				$attachedHosts = $ds.ExtensionData.Host
-				    Foreach ($vmHostRef in $attachedHosts)
-                    {
+                else {
+                    $attachedHosts = $ds.ExtensionData.Host
+                    Foreach ($vmHostRef in $attachedHosts) {
                         Detach-DatastoreFromHost -Datastore $ds -vmHost $vmHostRef
                     }
 
                 }
             }        
-		}
-	}
+        }
+    }
 }
 
-Function Unmount-DatastoreFromHost
-{
-	[CmdletBinding()]
-	Param 
+Function Unmount-DatastoreFromHost {
+    [CmdletBinding()]
+    Param 
     (
-		[Parameter(ValueFromPipeline=$true)]
-		$Datastore,
+        [Parameter(ValueFromPipeline=$true)]
+        $Datastore,
         $VMHost
-	)
-	Process 
-    {
+    )
+    Process {
         $hostview = Get-View $VMHost.Key
         $StorageSys = Get-View $HostView.ConfigManager.StorageSystem
         Write-Host "Unmounting VMFS Datastore $($Datastore.Name) from host $($hostview.Name)..."
@@ -427,9 +380,8 @@ Function Unmount-DatastoreFromHost
     }
 }
 
-Function Unmount-Datastore
-{
-<#
+Function Unmount-Datastore {
+    <#
 .SYNOPSIS
 Unmounts a datastore.  If no host supplied will unmount from all connected hosts.
   
@@ -442,172 +394,158 @@ Unmounts a datastore.  If no host supplied will unmount from all connected hosts
 .NOTES
 Author: Jonathon Taylor
 #>
-	[CmdletBinding()]
-	Param 
+    [CmdletBinding()]
+    Param 
     (
-		[Parameter(ValueFromPipeline=$true)]
-		$Datastore,
+        [Parameter(ValueFromPipeline=$true)]
+        $Datastore,
         $VMHost
-	)
-	Process 
-    {
-		if (-not $Datastore) 
-        {
-			Write-Host "No Datastore defined as input"
-			Exit
-		}
-		Foreach ($ds in $Datastore) 
-        {
-			$hostviewDSDiskName = $ds.ExtensionData.Info.vmfs.extent[0].Diskname
-			if ($ds.ExtensionData.Host)
-            {
-                if ($VMHost)
-                {
-                    Foreach ($thisVMHost in $VMHost)
-                    {
+    )
+    Process {
+        if (-not $Datastore) {
+            Write-Host "No Datastore defined as input"
+            Exit
+        }
+        Foreach ($ds in $Datastore) {
+            $hostviewDSDiskName = $ds.ExtensionData.Info.vmfs.extent[0].Diskname
+            if ($ds.ExtensionData.Host) {
+                if ($VMHost) {
+                    Foreach ($thisVMHost in $VMHost) {
                         $vmHostRef = $ds.ExtensionData.Host | Where-Object {$_.Key.Value -eq $thisVMHost.ExtensionData.MoRef.value}
                         Unmount-DatastoreFromHost -Datastore $ds -vmHost $vmHostRef
                     }
                 }
-                else
-                {
-			    	$attachedHosts = $ds.ExtensionData.Host
-				    Foreach ($vmHostRef in $attachedHosts) 
-                    {
+                else {
+                    $attachedHosts = $ds.ExtensionData.Host
+                    Foreach ($vmHostRef in $attachedHosts) {
                         Unmount-DatastoreFromHost -Datastore $ds -vmHost $vmHostRef
-				    }
+                    }
                 }
-			}
-		}
-	}
+            }
+        }
+    }
 }
 
-Function Get-DatastoreMountInfo
-{
-	[CmdletBinding()]
-	Param (
-		[Parameter(ValueFromPipeline=$true)]
-		$Datastore
-	)
-	Process {
-		$AllInfo = @()
-		if (-not $Datastore) {
-			$Datastore = Get-Datastore
-		}
-		Foreach ($ds in $Datastore) {  
-			if ($ds.ExtensionData.info.Vmfs) {
-				$hostviewDSDiskName = $ds.ExtensionData.Info.vmfs.extent[0].diskname
-				if ($ds.ExtensionData.Host) {
-					$attachedHosts = $ds.ExtensionData.Host
-					Foreach ($VMHost in $attachedHosts) {
-						$hostview = Get-View $VMHost.Key
-						$hostviewDSState = $VMHost.MountInfo.Mounted
-						$StorageSys = Get-View $HostView.ConfigManager.StorageSystem
-						$devices = $StorageSys.StorageDeviceInfo.ScsiLun
-						Foreach ($device in $devices) {
-							$Info = "" | Select Datastore, VMHost, Lun, Mounted, State
-							if ($device.canonicalName -eq $hostviewDSDiskName) {
-								$hostviewDSAttachState = ""
-								if ($device.operationalState[0] -eq "ok") {
-									$hostviewDSAttachState = "Attached"							
-								} elseif ($device.operationalState[0] -eq "off") {
-									$hostviewDSAttachState = "Detached"							
-								} else {
-									$hostviewDSAttachState = $device.operationalstate[0]
-								}
-								$Info.Datastore = $ds.Name
-								$Info.Lun = $hostviewDSDiskName
-								$Info.VMHost = $hostview.Name
-								$Info.Mounted = $HostViewDSState
-								$Info.State = $hostviewDSAttachState
-								$AllInfo += $Info
-							}
-						}
+Function Get-DatastoreMountInfo {
+    [CmdletBinding()]
+    Param (
+        [Parameter(ValueFromPipeline=$true)]
+        $Datastore
+    )
+    Process {
+        $AllInfo = @()
+        if (-not $Datastore) {
+            $Datastore = Get-Datastore
+        }
+        Foreach ($ds in $Datastore) {  
+            if ($ds.ExtensionData.info.Vmfs) {
+                $hostviewDSDiskName = $ds.ExtensionData.Info.vmfs.extent[0].diskname
+                if ($ds.ExtensionData.Host) {
+                    $attachedHosts = $ds.ExtensionData.Host
+                    Foreach ($VMHost in $attachedHosts) {
+                        $hostview = Get-View $VMHost.Key
+                        $hostviewDSState = $VMHost.MountInfo.Mounted
+                        $StorageSys = Get-View $HostView.ConfigManager.StorageSystem
+                        $devices = $StorageSys.StorageDeviceInfo.ScsiLun
+                        Foreach ($device in $devices) {
+                            $Info = "" | Select Datastore, VMHost, Lun, Mounted, State
+                            if ($device.canonicalName -eq $hostviewDSDiskName) {
+                                $hostviewDSAttachState = ""
+                                if ($device.operationalState[0] -eq "ok") {
+                                    $hostviewDSAttachState = "Attached"							
+                                } elseif ($device.operationalState[0] -eq "off") {
+                                    $hostviewDSAttachState = "Detached"							
+                                } else {
+                                    $hostviewDSAttachState = $device.operationalstate[0]
+                                }
+                                $Info.Datastore = $ds.Name
+                                $Info.Lun = $hostviewDSDiskName
+                                $Info.VMHost = $hostview.Name
+                                $Info.Mounted = $HostViewDSState
+                                $Info.State = $hostviewDSAttachState
+                                $AllInfo += $Info
+                            }
+                        }
 						
-					}
-				}
-			}
-		}
-		$AllInfo
-	}
+                    }
+                }
+            }
+        }
+        $AllInfo
+    }
 }
 
 Function Mount-Datastore {
-	[CmdletBinding()]
-	Param (
-		[Parameter(ValueFromPipeline=$true)]
-		$Datastore
-	)
-	Process {
-		if (-not $Datastore) {
-			Write-Host "No Datastore defined as input"
-			Exit
-		}
-		Foreach ($ds in $Datastore) {
-			$hostviewDSDiskName = $ds.ExtensionData.Info.vmfs.extent[0].Diskname
-			if ($ds.ExtensionData.Host) {
-				$attachedHosts = $ds.ExtensionData.Host
-				Foreach ($VMHost in $attachedHosts) {
-					$hostview = Get-View $VMHost.Key
-					$StorageSys = Get-View $HostView.ConfigManager.StorageSystem
-					Write-Host "Mounting VMFS Datastore $($DS.Name) on host $($hostview.Name)..."
-					$StorageSys.MountVmfsVolume($DS.ExtensionData.Info.vmfs.uuid);
-				}
-			}
-		}
-	}
+    [CmdletBinding()]
+    Param (
+        [Parameter(ValueFromPipeline=$true)]
+        $Datastore
+    )
+    Process {
+        if (-not $Datastore) {
+            Write-Host "No Datastore defined as input"
+            Exit
+        }
+        Foreach ($ds in $Datastore) {
+            $hostviewDSDiskName = $ds.ExtensionData.Info.vmfs.extent[0].Diskname
+            if ($ds.ExtensionData.Host) {
+                $attachedHosts = $ds.ExtensionData.Host
+                Foreach ($VMHost in $attachedHosts) {
+                    $hostview = Get-View $VMHost.Key
+                    $StorageSys = Get-View $HostView.ConfigManager.StorageSystem
+                    Write-Host "Mounting VMFS Datastore $($DS.Name) on host $($hostview.Name)..."
+                    $StorageSys.MountVmfsVolume($DS.ExtensionData.Info.vmfs.uuid);
+                }
+            }
+        }
+    }
 }
 
 Function Attach-Datastore {
-	[CmdletBinding()]
-	Param (
-		[Parameter(ValueFromPipeline=$true)]
-		$Datastore
-	)
-	Process {
-		if (-not $Datastore) {
-			Write-Host "No Datastore defined as input"
-			Exit
-		}
-		Foreach ($ds in $Datastore) {
-			$hostviewDSDiskName = $ds.ExtensionData.Info.vmfs.extent[0].Diskname
-			if ($ds.ExtensionData.Host) {
-				$attachedHosts = $ds.ExtensionData.Host
-				Foreach ($VMHost in $attachedHosts) {
-					$hostview = Get-View $VMHost.Key
-					$StorageSys = Get-View $HostView.ConfigManager.StorageSystem
-					$devices = $StorageSys.StorageDeviceInfo.ScsiLun
-					Foreach ($device in $devices) {
-						if ($device.canonicalName -eq $hostviewDSDiskName) {
-							$LunUUID = $Device.Uuid
-							Write-Host "Attaching LUN $($Device.CanonicalName) to host $($hostview.Name)..."
-							$StorageSys.AttachScsiLun($LunUUID);
-						}
-					}
-				}
-			}
-		}
-	}
+    [CmdletBinding()]
+    Param (
+        [Parameter(ValueFromPipeline=$true)]
+        $Datastore
+    )
+    Process {
+        if (-not $Datastore) {
+            Write-Host "No Datastore defined as input"
+            Exit
+        }
+        Foreach ($ds in $Datastore) {
+            $hostviewDSDiskName = $ds.ExtensionData.Info.vmfs.extent[0].Diskname
+            if ($ds.ExtensionData.Host) {
+                $attachedHosts = $ds.ExtensionData.Host
+                Foreach ($VMHost in $attachedHosts) {
+                    $hostview = Get-View $VMHost.Key
+                    $StorageSys = Get-View $HostView.ConfigManager.StorageSystem
+                    $devices = $StorageSys.StorageDeviceInfo.ScsiLun
+                    Foreach ($device in $devices) {
+                        if ($device.canonicalName -eq $hostviewDSDiskName) {
+                            $LunUUID = $Device.Uuid
+                            Write-Host "Attaching LUN $($Device.CanonicalName) to host $($hostview.Name)..."
+                            $StorageSys.AttachScsiLun($LunUUID);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
-Function Get-DatastoreFromExtent
-{
-	[CmdletBinding()]
-	Param (
-		[Parameter(ValueFromPipeline=$true)]
-		$ExtentRegEx
-	)
-	Process
-    {
+Function Get-DatastoreFromExtent {
+    [CmdletBinding()]
+    Param (
+        [Parameter(ValueFromPipeline=$true)]
+        $ExtentRegEx
+    )
+    Process {
         $viewMatches = @()
         $dsViews = Get-View -ViewType DataStore
-        foreach($dsView in $dsViews)
-        {
+        foreach($dsView in $dsViews) {
             $extents = $dsView.Info.Vmfs.Extent
-            foreach($extent in $extents)
-            {
-                if($extent.DiskName -match $ExtentRegEx)
-                {
+            foreach($extent in $extents) {
+                if($extent.DiskName -match $ExtentRegEx) {
                     $viewMatches += ,$dsView
                 }
             }
@@ -616,73 +554,62 @@ Function Get-DatastoreFromExtent
     }
 }
 
-Function Get-HostSatpPSPDefault
-{
-	[CmdletBinding()]
-	Param (
-		[Parameter(ValueFromPipeline=$true)]$vmHost,
+Function Get-HostSatpPSPDefault {
+    [CmdletBinding()]
+    Param (
+        [Parameter(ValueFromPipeline=$true)]$vmHost,
         [Parameter(Mandatory=$true)][ValidateSet("VMW_SATP_DEFAULT_AA","VMW_SATP_DEFAULT_AP","VMW_SATP_ALUA")][string]$satp
-	)
-	Process
-    {
+    )
+    Process {
         $esxcli = Get-EsxCli -VMHost (Get-VMHost -id $vmHost.MoRef)
         $currentPolicy = $esxcli.storage.nmp.satp.list() | Where-Object {$_.Name -eq $satp}
         $currentPolicy.DefaultPSP
     }
 }
 
-Function Set-HostSatpPSPDefault
-{
-	[cmdletbinding(SupportsShouldProcess=$True)]
-	Param (
-		[Parameter(ValueFromPipeline=$true)]$vmHost,
+Function Set-HostSatpPSPDefault {
+    [cmdletbinding(SupportsShouldProcess=$True)]
+    Param (
+        [Parameter(ValueFromPipeline=$true)]$vmHost,
         [Parameter(Mandatory=$true)][ValidateSet("VMW_PSP_MRU","VMW_PSP_FIXED","VMW_PSP_RR")][string]$defaultPSP,
         [Parameter(Mandatory=$true)][ValidateSet("VMW_SATP_DEFAULT_AA","VMW_SATP_DEFAULT_AP","VMW_SATP_ALUA")][string]$satp
-	)
-	Process
-    {
+    )
+    Process {
         $esxcli = Get-EsxCli -VMHost (Get-VMHost -id $vmHost.MoRef)
-        if(!$WhatIfPreference)
-        {
+        if(!$WhatIfPreference) {
             $esxcli.storage.nmp.satp.set($false,$defaultPSP,$satp)
         }
-        else
-        {
+        else {
             Write-Host "What if:  Performing the operation `"`$esxcli.storage.nmp.satp.set(`$false,$defaultPSP,$satp) on $($vmHost.Name)`"" 
         }
     }
 }
 
-Function Set-LunPSP
-{
-	[CmdletBinding(SupportsShouldProcess=$True)]
-	Param (
-		[Parameter(ValueFromPipeline=$true)]$vmHost,
+Function Set-LunPSP {
+    [CmdletBinding(SupportsShouldProcess=$True)]
+    Param (
+        [Parameter(ValueFromPipeline=$true)]$vmHost,
         [Parameter(Mandatory=$true)][ValidateSet("VMW_PSP_MRU","VMW_PSP_FIXED","VMW_PSP_RR")][string]$psp,
         [Parameter(Mandatory=$true)][string]$lunCN
-	)
-	Process
-    {
+    )
+    Process {
         $esxcli = Get-EsxCli -VMHost (Get-VMHost -id $vmHost.MoRef)
-        if(!$WhatIfPreference)
-        {
+        if(!$WhatIfPreference) {
             $esxcli.storage.nmp.device.set($false,$lunCN,$psp)
         }
-        else
-        {
+        else {
             Write-Host "What if:  Performing the operation `"`$esxcli.storage.nmp.device.set(`$false,$lunCN,$psp) on $($vmHost.Name)`"" 
         }
     }
 }
 
-Function Set-HAAdmissionControlPolicy
-{
-<#
+Function Set-HAAdmissionControlPolicy {
+    <#
 .SYNOPSIS
 Set the HA admission control policy and related parameters.
 
 #>
-[CmdletBinding(DefaultParameterSetName="PercentageBased",SupportsShouldProcess=$True)]
+    [CmdletBinding(DefaultParameterSetName="PercentageBased",SupportsShouldProcess=$True)]
     param(
         [Parameter(ParameterSetName="PercentageBased",Position=0,Mandatory=$true,ValueFromPipeline=$true)]
         [Parameter(ParameterSetName="SlotsBased",Position=0,Mandatory=$true,ValueFromPipeline=$true)][VMware.VimAutomation.ViCore.Impl.V1.Inventory.ComputeResourceImpl]$cluster,
@@ -696,38 +623,31 @@ Set the HA admission control policy and related parameters.
     $cluSpec.DasConfig.AdmissionControlPolicy = New-Object VMware.Vim.ClusterFailoverResourcesAdmissionControlPolicy
     $cluSpec.Dasconfig.AdmissionControlEnabled = $true
     
-    switch ($PSCmdlet.ParameterSetName)
-    {
-        "PercentageBased"
-        {
+    switch ($PSCmdlet.ParameterSetName) {
+        "PercentageBased" {
             $cluSpec.DasConfig.AdmissionControlPolicy.CpuFailoverResourcesPercent = $percentCPU
             $cluSpec.DasConfig.AdmissionControlPolicy.MemoryFailoverResourcesPercent = $percentMem
         }
-        "SlotsBased"
-        {
+        "SlotsBased" {
             Throw Exception "Not Implemented"
         }
     }
 
     $clusterView = Get-View $cluster
-    if(!$WhatIfPreference)
-    {
+    if(!$WhatIfPreference) {
         $clusterView.ReconfigureComputeResource($cluSpec,$true)
     }
-    else
-    {
+    else {
         Write-Host "What if:  Performing the operation `"`ReconfigureComputeResource($cluSpec,$true) on $($cluster.Name)`"" 
     }
 }
 
-Function Test-VMKPing
-{
+Function Test-VMKPing {
     Param(
         [Parameter (Mandatory=$true)]$vmHost,
         [Parameter (Mandatory=$true)]$sshKeyPath,
         [Parameter (Mandatory=$true)]$pingAddress,
         [Parameter (Mandatory=$false)]$count = 3
-
     )
 
     $ErrorActionPreference = 'stop'
@@ -739,8 +659,7 @@ Function Test-VMKPing
 
     Import-Module posh-ssh
 
-    foreach($thisVMHost in $vmHost)
-    {
+    foreach($thisVMHost in $vmHost) {
         Write-Verbose "Attempting to test $($thisVMHost.Name)"
     
         # Enable ssh
@@ -748,14 +667,14 @@ Function Test-VMKPing
 
         # Get a session
         $sshSession = New-SshSession -ComputerName $($thisVMHost.Name) -KeyFile $sshKeyPath -Credential $sshKeyCred
-        $res = Invoke-SSHCommand -SSHSession $sshSession -Command "vmkping -c $count $pingAddress"
+    $res = Invoke-SSHCommand -SSHSession $sshSession -Command "vmkping -c $count $pingAddress"
 
-        # Stop SSH
-        $thisVMHost | Get-VMHostService | ? {$_.label -eq 'SSH'} | Stop-VMHostService -Confirm:$false | Out-Null
+    # Stop SSH
+    $thisVMHost | Get-VMHostService | ? {$_.label -eq 'SSH'} | Stop-VMHostService -Confirm:$false | Out-Null
 
-        $res.Output
+    $res.Output
 
-    }
+}
 }
 
 Export-ModuleMember -Function *
