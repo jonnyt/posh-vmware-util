@@ -273,7 +273,8 @@ Function Recurse-Children($folder, $folderHash, $vCenterServer) {
 
 Function Get-VMFolderStruct {
     Param(
-        [Parameter(ValueFromPipeline=$true)]$vCenterServer
+        [Parameter(ValueFromPipeline=$true)]$vCenterServer,
+        [Parameter(ValueFromPipeline=$false)]$Datacenter
     )
 
     # We want a hashtable of folderId and fullPath
@@ -284,9 +285,48 @@ Function Get-VMFolderStruct {
     $vmRoots = get-view -ViewType Folder -Filter @{"name" = "^vm$"} -Server $vCenterServer
 
     # Get all the datacenters
-    $dcs = Get-View -ViewType Datacenter -Server $vCenterServer
+    if($PSBoundParameters['Datacenter'] -eq $null){
+        $dcs = Get-View -ViewType Datacenter -Server $vCenterServer
+    }
+    else {
+        $dcs = Get-View -ViewType Datacenter -Server $vCenterServer -Filter @{"Name"="$Datacenter"}
+    }
+    
     foreach($dc in $dcs) {
         $rootVmFolderView = Get-View -ViewType Folder -Filter @{"Parent" = "$($dc.MoRef.Value)"; "Name"="^vm$"} -Server $vCenterServer
+        #$path = "/$($dc.name)/$($rootVmFolderView.name)"
+        #$folderHash.Add($rootVmFolderView.MoRef.ToString(),$path)
+        # for each subfolder in the VM root, call a recursive while loop to get the children
+        Recurse-Children -folder $rootVmFolderView -folderHash $thisFolderHash -vCenterServer $vCenterServer
+    }
+    # Put the folder hashtable out on the pipeline
+    $thisFolderHash
+}
+
+Function Get-FolderStruct {
+    Param(
+        [Parameter(ValueFromPipeline=$true)]$vCenterServer,
+        [Parameter(ValueFromPipeline=$false)]$Datacenter,
+        [Parameter(ValueFromPipeline=$false)][ValidateSet('vm','host','datastore','network')][String]$RootType
+    )
+
+    # We want a hashtable of folderId and fullPath
+    # Set-Variable -Name folderHash -value @{} -Option AllScope
+    $thisFolderHash = @{}
+
+    # Start with the 'vm' root
+    $vmRoots = get-view -ViewType Folder -Filter @{"name" = "^$RootType$"} -Server $vCenterServer
+
+    # Get all the datacenters
+    if($PSBoundParameters['Datacenter'] -eq $null){
+        $dcs = Get-View -ViewType Datacenter -Server $vCenterServer
+    }
+    else {
+        $dcs = Get-View -ViewType Datacenter -Server $vCenterServer -Filter @{"Name"="$Datacenter"}
+    }
+    
+    foreach($dc in $dcs) {
+        $rootVmFolderView = Get-View -ViewType Folder -Filter @{"Parent" = "$($dc.MoRef.Value)"; "Name"="^$RootType$"} -Server $vCenterServer
         #$path = "/$($dc.name)/$($rootVmFolderView.name)"
         #$folderHash.Add($rootVmFolderView.MoRef.ToString(),$path)
         # for each subfolder in the VM root, call a recursive while loop to get the children
