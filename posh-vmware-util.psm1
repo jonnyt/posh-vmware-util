@@ -749,12 +749,32 @@ Function Get-USBPort {
                     If ($Device.Backing.FileName) { $Details | Add-Member Noteproperty Filename -Value $Device.Backing.FileName } 
                     If ($Device.Backing.Datastore) { $Details | Add-Member Noteproperty Datastore -Value $Device.Backing.Datastore } 
                     If ($Device.Backing.DeviceName) { $Details | Add-Member Noteproperty DeviceName -Value $Device.Backing.DeviceName } 
-                    $Details | Add-Member Noteproperty Connected -Value $Device.Connectable.Connected 
-                    $Details | Add-Member Noteproperty StartConnected -Value $Device.Connectable.StartConnected 
+                    $Details | Add-Member Noteproperty Connected -Value $Device.Connected 
+                    $Details | Add-Member Noteproperty StartConnected -Value $Device.StartConnected 
                     $Details 
                 } 
             } 
         } 
+    } 
+}
+
+Function Remove-USBPort { 
+    Param ( 
+        [Parameter(Mandatory = $True, ValueFromPipelinebyPropertyName = $True)] 
+        $VM, 
+        [Parameter(Mandatory = $True, ValueFromPipelinebyPropertyName = $True)] 
+        $Name 
+    ) 
+    Process { 
+        $VMSpec = New-Object VMware.Vim.VirtualMachineConfigSpec 
+        $VMSpec.deviceChange = New-Object VMware.Vim.VirtualDeviceConfigSpec 
+        $VMSpec.deviceChange[0] = New-Object VMware.Vim.VirtualDeviceConfigSpec 
+        $VMSpec.deviceChange[0].operation = "remove" 
+        $Device = $VM.ExtensionData.Config.Hardware.Device | Foreach-Object { 
+            $_ | Where-Object {$_.gettype().Name -eq "VirtualUSB"} | Where-Object { $_.DeviceInfo.Label -eq $Name } 
+        } 
+        $VMSpec.deviceChange[0].device = $Device 
+        $VM.ExtensionData.ReconfigVM_Task($VMSpec) 
     } 
 }
 
