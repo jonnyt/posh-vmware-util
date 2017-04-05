@@ -13,9 +13,9 @@
             PS C:\> Connect-VI @('vc1.school.edu','vc2.school.edu')
     #>
     Param (
-        [Parameter(ValueFromPipeline=$true)]$vchosts,
-        [Parameter(Mandatory=$False)][switch]$disconnectExisting = [switch]::$false,
-        [Parameter(Mandatory=$False)]$credential
+        [Parameter(ValueFromPipeline = $true)]$vchosts,
+        [Parameter(Mandatory = $False)][switch]$disconnectExisting = [switch]::$false,
+        [Parameter(Mandatory = $False)]$credential
     )
     Write-Debug "Connecting to VIServers";
     #  Clear out any existing session
@@ -33,7 +33,7 @@
     }
 
     # Connect to the appropriate vCenter Servers
-    if($credential -eq $null) {
+    if ($credential -eq $null) {
         Connect-VIServer $vchosts -ErrorAction:Stop | Out-Null
     }
     else {
@@ -69,7 +69,8 @@ Function Get-ViSession {
         }
         If ($_.Key -eq $SessionMgr.CurrentSession.Key) {
             $Session | Add-Member -MemberType NoteProperty -Name Status -Value "Current Session"
-        } Else {
+        }
+        Else {
             $Session | Add-Member -MemberType NoteProperty -Name Status -Value "Idle"
         }
         $Session | Add-Member -MemberType NoteProperty -Name IdleMinutes -Value ([Math]::Round(((Get-Date) – ($_.LastActiveTime).ToLocalTime()).TotalMinutes))
@@ -97,7 +98,7 @@ Function Disconnect-ViSession {
     #>
     [CmdletBinding()]
     Param (
-        [Parameter(ValueFromPipeline=$true)]
+        [Parameter(ValueFromPipeline = $true)]
         $SessionList
     )
     Process {
@@ -111,11 +112,11 @@ Function Disconnect-ViSession {
 
 Function Set-SIOC() {
     Param(
-        [Parameter(Mandatory=$True)]$dataStores,
-        [Parameter(Mandatory=$False)][switch]$enabled=[switch]$False
+        [Parameter(Mandatory = $True)]$dataStores,
+        [Parameter(Mandatory = $False)][switch]$enabled = [switch]$False
     )
     $siocSpec = New-Object VMware.Vim.StorageIORMConfigSpec
-    if($enabled.IsPresent) {
+    if ($enabled.IsPresent) {
         $siocspec.Enabled = $True
     }
     else {
@@ -127,7 +128,7 @@ Function Set-SIOC() {
     }
 }
 
-Function Get-vLicense{
+Function Get-vLicense {
     <#
 .SYNOPSIS
 Function to show all licenses  in vCenter
@@ -142,22 +143,26 @@ Author: Niklas Akerlund / RTS
 Date: 2012-03-28
 #>
     param (
-        [Parameter(ValueFromPipeline=$True, HelpMessage="Enter the license key or object")]$LicenseKey = $null,
+        [Parameter(ValueFromPipeline = $True, HelpMessage = "Enter the license key or object")]$LicenseKey = $null,
         [Switch]$showUnused,
         [Switch]$showEval
     )
     $servInst = Get-View ServiceInstance
     $licenceMgr = Get-View $servInst.Content.licenseManager
-    if ($showUnused -and $showEval){
+    if ($showUnused -and $showEval) {
         $licenses = $licenceMgr.Licenses | where {$_.EditionKey -eq "eval" -or $_.Used -eq 0}
-    }elseif($showUnused){
+    }
+    elseif ($showUnused) {
         $licenses = $licenceMgr.Licenses | where {$_.EditionKey -ne "eval" -and $_.Used -eq 0}
-    }elseif($showEval){
+    }
+    elseif ($showEval) {
         $licenses = $licenceMgr.Licenses | where {$_.EditionKey -eq "eval"}
-    }elseif ($LicenseKey -ne $null) {
-        if (($LicenseKey.GetType()).Name -eq "String"){
+    }
+    elseif ($LicenseKey -ne $null) {
+        if (($LicenseKey.GetType()).Name -eq "String") {
             $licenses = $licenceMgr.Licenses | where {$_.LicenseKey -eq $LicenseKey}
-        }else {
+        }
+        else {
             $licenses = $licenceMgr.Licenses | where {$_.LicenseKey -eq $LicenseKey.LicenseKey}
         }
     }
@@ -184,13 +189,13 @@ Date: 2012-03-28
 #>
     param (
         $VMHost ,
-        [Parameter(ValueFromPipeline=$True)]$License = $null,
+        [Parameter(ValueFromPipeline = $True)]$License = $null,
         [string]$LicenseKey = "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX",
         [switch]$AddKey
     )
     $LicenseMgr = Get-View -Id 'LicenseManager-LicenseManager'
     $LicenseAssignMgr = Get-View -Id 'LicenseAssignmentManager-LicenseAssignmentManager'
-    if($License) {
+    if ($License) {
         $LicenseKey = $License.LicenseKey
         $LicenseType = $LicenseMgr.DecodeLicense($LicenseKey)
     }
@@ -206,15 +211,16 @@ Date: 2012-03-28
             if ($LicenseType.EditionKey -eq "vc") {
                 #$servInst = Get-View ServiceInstance
                 $Uuid = (Get-View ServiceInstance).Content.About.InstanceUuid
-                $licenseAssignMgr.UpdateAssignedLicense($Uuid, $LicenseKey,$null)
+                $licenseAssignMgr.UpdateAssignedLicense($Uuid, $LicenseKey, $null)
             }
             else {
                 $key = Get-vLicense -LicenseKey $LicenseKey
-                if($key  -and ($key.Total-$key.Used) -lt (get-vmhost $VMHost | get-view).Hardware.CpuInfo.NumCpuPackages) {
+                if ($key -and ($key.Total - $key.Used) -lt (get-vmhost $VMHost | get-view).Hardware.CpuInfo.NumCpuPackages) {
                     Write-Host "Not Enough licenses left"
-                } else {
+                }
+                else {
                     $Uuid = (Get-VMhost $VMHost | Get-View).MoRef.Value
-                    $licenseAssignMgr.UpdateAssignedLicense($Uuid, $LicenseKey,$null)
+                    $licenseAssignMgr.UpdateAssignedLicense($Uuid, $LicenseKey, $null)
                 }
             }  
         }
@@ -236,10 +242,10 @@ Author: Niklas Akerlund / RTS
 Date: 2012-03-28
 #>
     param (
-        [Parameter(Position=0, Mandatory=$true, ValueFromPipeline=$True, HelpMessage="Enter the key or keyobject to remove")]$License
+        [Parameter(Position = 0, Mandatory = $true, ValueFromPipeline = $True, HelpMessage = "Enter the key or keyobject to remove")]$License
     )
     $LicObj = Get-vLicense $License 
-    if($LicObj.Used -eq 0) {
+    if ($LicObj.Used -eq 0) {
         $LicenseMgr = Get-View -Id 'LicenseManager-LicenseManager'
         $LicenseMgr.RemoveLicense($LicObj.LicenseKey)
     }
@@ -249,14 +255,14 @@ Date: 2012-03-28
 }
 
 Function Recurse-Children($folder, $folderHash, $vCenterServer) {
-    foreach($child in $folder.ChildEntity) {
-        if($child.Type -eq "Folder") {
+    foreach ($child in $folder.ChildEntity) {
+        if ($child.Type -eq "Folder") {
             # Get the child view
             $thisChildView = Get-View $child -Server $vCenterServer | Select-Object -First 1
         
             # Append the root path and add it to the hash
             $childRoot = $folderHash[$thisChildView.Parent.ToString()]
-            if($childRoot -eq $null) {
+            if ($childRoot -eq $null) {
                 $newRoot = "/$($thisChildView.Name)"
             }
             else {
@@ -265,7 +271,7 @@ Function Recurse-Children($folder, $folderHash, $vCenterServer) {
 
             Write-Debug ("Adding $($thisChildView.MoRef.ToString()),$newRoot for server $vCenterServer")
             
-            $folderHash.Add($thisChildView.MoRef.ToString(),$newRoot)
+            $folderHash.Add($thisChildView.MoRef.ToString(), $newRoot)
             Recurse-Children -folder $thisChildView -folderHash $folderHash -vCenterServer $vCenterServer
         }
     }
@@ -273,8 +279,8 @@ Function Recurse-Children($folder, $folderHash, $vCenterServer) {
 
 Function Get-VMFolderStruct {
     Param(
-        [Parameter(ValueFromPipeline=$true)]$vCenterServer,
-        [Parameter(ValueFromPipeline=$false)]$Datacenter
+        [Parameter(ValueFromPipeline = $true)]$vCenterServer,
+        [Parameter(ValueFromPipeline = $false)]$Datacenter
     )
 
     # We want a hashtable of folderId and fullPath
@@ -285,15 +291,15 @@ Function Get-VMFolderStruct {
     $vmRoots = get-view -ViewType Folder -Filter @{"name" = "^vm$"} -Server $vCenterServer
 
     # Get all the datacenters
-    if($PSBoundParameters['Datacenter'] -eq $null){
+    if ($PSBoundParameters['Datacenter'] -eq $null) {
         $dcs = Get-View -ViewType Datacenter -Server $vCenterServer
     }
     else {
-        $dcs = Get-View -ViewType Datacenter -Server $vCenterServer -Filter @{"Name"="$Datacenter"}
+        $dcs = Get-View -ViewType Datacenter -Server $vCenterServer -Filter @{"Name" = "$Datacenter"}
     }
     
-    foreach($dc in $dcs) {
-        $rootVmFolderView = Get-View -ViewType Folder -Filter @{"Parent" = "$($dc.MoRef.Value)"; "Name"="^vm$"} -Server $vCenterServer
+    foreach ($dc in $dcs) {
+        $rootVmFolderView = Get-View -ViewType Folder -Filter @{"Parent" = "$($dc.MoRef.Value)"; "Name" = "^vm$"} -Server $vCenterServer
         #$path = "/$($dc.name)/$($rootVmFolderView.name)"
         #$folderHash.Add($rootVmFolderView.MoRef.ToString(),$path)
         # for each subfolder in the VM root, call a recursive while loop to get the children
@@ -305,9 +311,9 @@ Function Get-VMFolderStruct {
 
 Function Get-FolderStruct {
     Param(
-        [Parameter(ValueFromPipeline=$true)]$vCenterServer,
-        [Parameter(ValueFromPipeline=$false)]$Datacenter,
-        [Parameter(ValueFromPipeline=$false)][ValidateSet('vm','host','datastore','network')][String]$RootType
+        [Parameter(ValueFromPipeline = $true)]$vCenterServer,
+        [Parameter(ValueFromPipeline = $false)]$Datacenter,
+        [Parameter(ValueFromPipeline = $false)][ValidateSet('vm', 'host', 'datastore', 'network')][String]$RootType
     )
 
     # We want a hashtable of folderId and fullPath
@@ -318,15 +324,15 @@ Function Get-FolderStruct {
     $vmRoots = get-view -ViewType Folder -Filter @{"name" = "^$RootType$"} -Server $vCenterServer
 
     # Get all the datacenters
-    if($PSBoundParameters['Datacenter'] -eq $null){
+    if ($PSBoundParameters['Datacenter'] -eq $null) {
         $dcs = Get-View -ViewType Datacenter -Server $vCenterServer
     }
     else {
-        $dcs = Get-View -ViewType Datacenter -Server $vCenterServer -Filter @{"Name"="$Datacenter"}
+        $dcs = Get-View -ViewType Datacenter -Server $vCenterServer -Filter @{"Name" = "$Datacenter"}
     }
     
-    foreach($dc in $dcs) {
-        $rootVmFolderView = Get-View -ViewType Folder -Filter @{"Parent" = "$($dc.MoRef.Value)"; "Name"="^$RootType$"} -Server $vCenterServer
+    foreach ($dc in $dcs) {
+        $rootVmFolderView = Get-View -ViewType Folder -Filter @{"Parent" = "$($dc.MoRef.Value)"; "Name" = "^$RootType$"} -Server $vCenterServer
         #$path = "/$($dc.name)/$($rootVmFolderView.name)"
         #$folderHash.Add($rootVmFolderView.MoRef.ToString(),$path)
         # for each subfolder in the VM root, call a recursive while loop to get the children
@@ -337,10 +343,10 @@ Function Get-FolderStruct {
 }
 
 Function Detach-DatastoreFromHost {
-    [cmdletbinding(SupportsShouldProcess=$True)]
+    [cmdletbinding(SupportsShouldProcess = $True)]
     Param
     (
-        [Parameter(ValueFromPipeline=$true)]$Datastore,
+        [Parameter(ValueFromPipeline = $true)]$Datastore,
         $vmHost
 
     )
@@ -375,7 +381,7 @@ Author: Jonathon Taylor
     [CmdletBinding()]
     Param
     (
-        [Parameter(ValueFromPipeline=$true)]$Datastore,
+        [Parameter(ValueFromPipeline = $true)]$Datastore,
         $vmHost
     )
     Process {
@@ -408,7 +414,7 @@ Function Unmount-DatastoreFromHost {
     [CmdletBinding()]
     Param 
     (
-        [Parameter(ValueFromPipeline=$true)]
+        [Parameter(ValueFromPipeline = $true)]
         $Datastore,
         $VMHost
     )
@@ -437,7 +443,7 @@ Author: Jonathon Taylor
     [CmdletBinding()]
     Param 
     (
-        [Parameter(ValueFromPipeline=$true)]
+        [Parameter(ValueFromPipeline = $true)]
         $Datastore,
         $VMHost
     )
@@ -469,7 +475,7 @@ Author: Jonathon Taylor
 Function Get-DatastoreMountInfo {
     [CmdletBinding()]
     Param (
-        [Parameter(ValueFromPipeline=$true)]
+        [Parameter(ValueFromPipeline = $true)]
         $Datastore
     )
     Process {
@@ -493,9 +499,11 @@ Function Get-DatastoreMountInfo {
                                 $hostviewDSAttachState = ""
                                 if ($device.operationalState[0] -eq "ok") {
                                     $hostviewDSAttachState = "Attached"							
-                                } elseif ($device.operationalState[0] -eq "off") {
+                                }
+                                elseif ($device.operationalState[0] -eq "off") {
                                     $hostviewDSAttachState = "Detached"							
-                                } else {
+                                }
+                                else {
                                     $hostviewDSAttachState = $device.operationalstate[0]
                                 }
                                 $Info.Datastore = $ds.Name
@@ -518,7 +526,7 @@ Function Get-DatastoreMountInfo {
 Function Mount-Datastore {
     [CmdletBinding()]
     Param (
-        [Parameter(ValueFromPipeline=$true)]
+        [Parameter(ValueFromPipeline = $true)]
         $Datastore
     )
     Process {
@@ -544,7 +552,7 @@ Function Mount-Datastore {
 Function Attach-Datastore {
     [CmdletBinding()]
     Param (
-        [Parameter(ValueFromPipeline=$true)]
+        [Parameter(ValueFromPipeline = $true)]
         $Datastore
     )
     Process {
@@ -576,17 +584,17 @@ Function Attach-Datastore {
 Function Get-DatastoreFromExtent {
     [CmdletBinding()]
     Param (
-        [Parameter(ValueFromPipeline=$true)]
+        [Parameter(ValueFromPipeline = $true)]
         $ExtentRegEx
     )
     Process {
         $viewMatches = @()
         $dsViews = Get-View -ViewType DataStore
-        foreach($dsView in $dsViews) {
+        foreach ($dsView in $dsViews) {
             $extents = $dsView.Info.Vmfs.Extent
-            foreach($extent in $extents) {
-                if($extent.DiskName -match $ExtentRegEx) {
-                    $viewMatches += ,$dsView
+            foreach ($extent in $extents) {
+                if ($extent.DiskName -match $ExtentRegEx) {
+                    $viewMatches += , $dsView
                 }
             }
         }
@@ -597,8 +605,8 @@ Function Get-DatastoreFromExtent {
 Function Get-HostSatpPSPDefault {
     [CmdletBinding()]
     Param (
-        [Parameter(ValueFromPipeline=$true)]$vmHost,
-        [Parameter(Mandatory=$true)][ValidateSet("VMW_SATP_DEFAULT_AA","VMW_SATP_DEFAULT_AP","VMW_SATP_ALUA")][string]$satp
+        [Parameter(ValueFromPipeline = $true)]$vmHost,
+        [Parameter(Mandatory = $true)][ValidateSet("VMW_SATP_DEFAULT_AA", "VMW_SATP_DEFAULT_AP", "VMW_SATP_ALUA")][string]$satp
     )
     Process {
         $esxcli = Get-EsxCli -VMHost (Get-VMHost -id $vmHost.MoRef)
@@ -608,16 +616,16 @@ Function Get-HostSatpPSPDefault {
 }
 
 Function Set-HostSatpPSPDefault {
-    [cmdletbinding(SupportsShouldProcess=$True)]
+    [cmdletbinding(SupportsShouldProcess = $True)]
     Param (
-        [Parameter(ValueFromPipeline=$true)]$vmHost,
-        [Parameter(Mandatory=$true)][ValidateSet("VMW_PSP_MRU","VMW_PSP_FIXED","VMW_PSP_RR")][string]$defaultPSP,
-        [Parameter(Mandatory=$true)][ValidateSet("VMW_SATP_DEFAULT_AA","VMW_SATP_DEFAULT_AP","VMW_SATP_ALUA")][string]$satp
+        [Parameter(ValueFromPipeline = $true)]$vmHost,
+        [Parameter(Mandatory = $true)][ValidateSet("VMW_PSP_MRU", "VMW_PSP_FIXED", "VMW_PSP_RR")][string]$defaultPSP,
+        [Parameter(Mandatory = $true)][ValidateSet("VMW_SATP_DEFAULT_AA", "VMW_SATP_DEFAULT_AP", "VMW_SATP_ALUA")][string]$satp
     )
     Process {
         $esxcli = Get-EsxCli -VMHost (Get-VMHost -id $vmHost.MoRef)
-        if(!$WhatIfPreference) {
-            $esxcli.storage.nmp.satp.set($false,$defaultPSP,$satp)
+        if (!$WhatIfPreference) {
+            $esxcli.storage.nmp.satp.set($false, $defaultPSP, $satp)
         }
         else {
             Write-Host "What if:  Performing the operation `"`$esxcli.storage.nmp.satp.set(`$false,$defaultPSP,$satp) on $($vmHost.Name)`"" 
@@ -626,16 +634,16 @@ Function Set-HostSatpPSPDefault {
 }
 
 Function Set-LunPSP {
-    [CmdletBinding(SupportsShouldProcess=$True)]
+    [CmdletBinding(SupportsShouldProcess = $True)]
     Param (
-        [Parameter(ValueFromPipeline=$true)]$vmHost,
-        [Parameter(Mandatory=$true)][ValidateSet("VMW_PSP_MRU","VMW_PSP_FIXED","VMW_PSP_RR")][string]$psp,
-        [Parameter(Mandatory=$true)][string]$lunCN
+        [Parameter(ValueFromPipeline = $true)]$vmHost,
+        [Parameter(Mandatory = $true)][ValidateSet("VMW_PSP_MRU", "VMW_PSP_FIXED", "VMW_PSP_RR")][string]$psp,
+        [Parameter(Mandatory = $true)][string]$lunCN
     )
     Process {
         $esxcli = Get-EsxCli -VMHost (Get-VMHost -id $vmHost.MoRef)
-        if(!$WhatIfPreference) {
-            $esxcli.storage.nmp.device.set($false,$lunCN,$psp)
+        if (!$WhatIfPreference) {
+            $esxcli.storage.nmp.device.set($false, $lunCN, $psp)
         }
         else {
             Write-Host "What if:  Performing the operation `"`$esxcli.storage.nmp.device.set(`$false,$lunCN,$psp) on $($vmHost.Name)`"" 
@@ -649,13 +657,13 @@ Function Set-HAAdmissionControlPolicy {
 Set the HA admission control policy and related parameters.
 
 #>
-    [CmdletBinding(DefaultParameterSetName="PercentageBased",SupportsShouldProcess=$True)]
+    [CmdletBinding(DefaultParameterSetName = "PercentageBased", SupportsShouldProcess = $True)]
     param(
-        [Parameter(ParameterSetName="PercentageBased",Position=0,Mandatory=$true,ValueFromPipeline=$true)]
-        [Parameter(ParameterSetName="SlotsBased",Position=0,Mandatory=$true,ValueFromPipeline=$true)][VMware.VimAutomation.ViCore.Impl.V1.Inventory.ComputeResourceImpl]$cluster,
-        [Parameter(ParameterSetName="PercentageBased",Mandatory=$false)][int]$percentCPU=25,
-        [Parameter(ParameterSetName="PercentageBased",Mandatory=$false)][int]$percentMem=25,
-        [Parameter(ParameterSetName="SlotsBased",Mandatory=$false)][int]$hostFailuresToTolerate=1
+        [Parameter(ParameterSetName = "PercentageBased", Position = 0, Mandatory = $true, ValueFromPipeline = $true)]
+        [Parameter(ParameterSetName = "SlotsBased", Position = 0, Mandatory = $true, ValueFromPipeline = $true)][VMware.VimAutomation.ViCore.Impl.V1.Inventory.ComputeResourceImpl]$cluster,
+        [Parameter(ParameterSetName = "PercentageBased", Mandatory = $false)][int]$percentCPU = 25,
+        [Parameter(ParameterSetName = "PercentageBased", Mandatory = $false)][int]$percentMem = 25,
+        [Parameter(ParameterSetName = "SlotsBased", Mandatory = $false)][int]$hostFailuresToTolerate = 1
     )
 
     $cluSpec = New-Object VMware.Vim.ClusterConfigSpecEx
@@ -674,20 +682,152 @@ Set the HA admission control policy and related parameters.
     }
 
     $clusterView = Get-View $cluster
-    if(!$WhatIfPreference) {
-        $clusterView.ReconfigureComputeResource($cluSpec,$true)
+    if (!$WhatIfPreference) {
+        $clusterView.ReconfigureComputeResource($cluSpec, $true)
     }
     else {
         Write-Host "What if:  Performing the operation `"`ReconfigureComputeResource($cluSpec,$true) on $($cluster.Name)`"" 
     }
 }
 
+Function Get-SerialPort { 
+    Param ( 
+        [Parameter(Mandatory = $True, ValueFromPipeline = $True, ValueFromPipelinebyPropertyName = $True)] 
+        $VM 
+    ) 
+    Process { 
+        Foreach ($VMachine in $VM) { 
+            Foreach ($Device in $VMachine.ExtensionData.Config.Hardware.Device) { 
+                If ($Device.gettype().Name -eq "VirtualSerialPort") { 
+                    $Details = New-Object PsObject 
+                    $Details | Add-Member Noteproperty VM -Value $VMachine 
+                    $Details | Add-Member Noteproperty Name -Value $Device.DeviceInfo.Label 
+                    If ($Device.Backing.FileName) { $Details | Add-Member Noteproperty Filename -Value $Device.Backing.FileName } 
+                    If ($Device.Backing.Datastore) { $Details | Add-Member Noteproperty Datastore -Value $Device.Backing.Datastore } 
+                    If ($Device.Backing.DeviceName) { $Details | Add-Member Noteproperty DeviceName -Value $Device.Backing.DeviceName } 
+                    $Details | Add-Member Noteproperty Connected -Value $Device.Connectable.Connected 
+                    $Details | Add-Member Noteproperty StartConnected -Value $Device.Connectable.StartConnected 
+                    $Details 
+                } 
+            } 
+        } 
+    } 
+}
+
+Function Remove-SerialPort { 
+    Param ( 
+        [Parameter(Mandatory = $True, ValueFromPipelinebyPropertyName = $True)] 
+        $VM, 
+        [Parameter(Mandatory = $True, ValueFromPipelinebyPropertyName = $True)] 
+        $Name 
+    ) 
+    Process { 
+        $VMSpec = New-Object VMware.Vim.VirtualMachineConfigSpec 
+        $VMSpec.deviceChange = New-Object VMware.Vim.VirtualDeviceConfigSpec 
+        $VMSpec.deviceChange[0] = New-Object VMware.Vim.VirtualDeviceConfigSpec 
+        $VMSpec.deviceChange[0].operation = "remove" 
+        $Device = $VM.ExtensionData.Config.Hardware.Device | Foreach-Object { 
+            $_ | Where-Object {$_.gettype().Name -eq "VirtualSerialPort"} | Where-Object { $_.DeviceInfo.Label -eq $Name } 
+        } 
+        $VMSpec.deviceChange[0].device = $Device 
+        $VM.ExtensionData.ReconfigVM_Task($VMSpec) 
+    } 
+}
+
+Function Get-USBPort { 
+    Param ( 
+        [Parameter(Mandatory = $True, ValueFromPipeline = $True, ValueFromPipelinebyPropertyName = $True)] 
+        $VM 
+    ) 
+    Process { 
+        Foreach ($VMachine in $VM) { 
+            Foreach ($Device in $VMachine.ExtensionData.Config.Hardware.Device) { 
+                If ($Device.gettype().Name -eq "VirtualUSB") { 
+                    $Details = New-Object PsObject 
+                    $Details | Add-Member Noteproperty VM -Value $VMachine 
+                    $Details | Add-Member Noteproperty Name -Value $Device.DeviceInfo.Label 
+                    If ($Device.Backing.FileName) { $Details | Add-Member Noteproperty Filename -Value $Device.Backing.FileName } 
+                    If ($Device.Backing.Datastore) { $Details | Add-Member Noteproperty Datastore -Value $Device.Backing.Datastore } 
+                    If ($Device.Backing.DeviceName) { $Details | Add-Member Noteproperty DeviceName -Value $Device.Backing.DeviceName } 
+                    $Details | Add-Member Noteproperty Connected -Value $Device.Connectable.Connected 
+                    $Details | Add-Member Noteproperty StartConnected -Value $Device.Connectable.StartConnected 
+                    $Details 
+                } 
+            } 
+        } 
+    } 
+}
+
+Function Remove-ParallelPort { 
+    Param ( 
+        [Parameter(Mandatory = $True, ValueFromPipelinebyPropertyName = $True)] 
+        $VM, 
+        [Parameter(Mandatory = $True, ValueFromPipelinebyPropertyName = $True)] 
+        $Name 
+    ) 
+    Process { 
+        $VMSpec = New-Object VMware.Vim.VirtualMachineConfigSpec 
+        $VMSpec.deviceChange = New-Object VMware.Vim.VirtualDeviceConfigSpec 
+        $VMSpec.deviceChange[0] = New-Object VMware.Vim.VirtualDeviceConfigSpec 
+        $VMSpec.deviceChange[0].operation = "remove" 
+        $Device = $VM.ExtensionData.Config.Hardware.Device | Foreach-Object { 
+            $_ | Where-Object {$_.gettype().Name -eq "VirtualParallelPort"} | Where-Object { $_.DeviceInfo.Label -eq $Name } 
+        } 
+        $VMSpec.deviceChange[0].device = $Device 
+        $VM.ExtensionData.ReconfigVM_Task($VMSpec) 
+    } 
+}
+
+Function Get-ParallelPort { 
+    Param ( 
+        [Parameter(Mandatory = $True, ValueFromPipeline = $True, ValueFromPipelinebyPropertyName = $True)] 
+        $VM 
+    ) 
+    Process { 
+        Foreach ($VMachine in $VM) { 
+            Foreach ($Device in $VMachine.ExtensionData.Config.Hardware.Device) { 
+                If ($Device.gettype().Name -eq "VirtualParallelPort") { 
+                    $Details = New-Object PsObject 
+                    $Details | Add-Member Noteproperty VM -Value $VMachine 
+                    $Details | Add-Member Noteproperty Name -Value $Device.DeviceInfo.Label 
+                    If ($Device.Backing.FileName) { $Details | Add-Member Noteproperty Filename -Value $Device.Backing.FileName } 
+                    If ($Device.Backing.Datastore) { $Details | Add-Member Noteproperty Datastore -Value $Device.Backing.Datastore } 
+                    If ($Device.Backing.DeviceName) { $Details | Add-Member Noteproperty DeviceName -Value $Device.Backing.DeviceName } 
+                    $Details | Add-Member Noteproperty Connected -Value $Device.Connectable.Connected 
+                    $Details | Add-Member Noteproperty StartConnected -Value $Device.Connectable.StartConnected 
+                    $Details 
+                } 
+            } 
+        } 
+    } 
+}
+
+Function Remove-ParallelPort { 
+    Param ( 
+        [Parameter(Mandatory = $True, ValueFromPipelinebyPropertyName = $True)] 
+        $VM, 
+        [Parameter(Mandatory = $True, ValueFromPipelinebyPropertyName = $True)] 
+        $Name 
+    ) 
+    Process { 
+        $VMSpec = New-Object VMware.Vim.VirtualMachineConfigSpec 
+        $VMSpec.deviceChange = New-Object VMware.Vim.VirtualDeviceConfigSpec 
+        $VMSpec.deviceChange[0] = New-Object VMware.Vim.VirtualDeviceConfigSpec 
+        $VMSpec.deviceChange[0].operation = "remove" 
+        $Device = $VM.ExtensionData.Config.Hardware.Device | Foreach { 
+            $_ | Where {$_.gettype().Name -eq "VirtualParallelPort"} | Where { $_.DeviceInfo.Label -eq $Name } 
+        } 
+        $VMSpec.deviceChange[0].device = $Device 
+        $VM.ExtensionData.ReconfigVM_Task($VMSpec) 
+    } 
+}
+
 Function Test-VMKPing {
     Param(
-        [Parameter (Mandatory=$true)]$vmHost,
-        [Parameter (Mandatory=$true)]$sshKeyPath,
-        [Parameter (Mandatory=$true)]$pingAddress,
-        [Parameter (Mandatory=$false)]$count = 3
+        [Parameter (Mandatory = $true)]$vmHost,
+        [Parameter (Mandatory = $true)]$sshKeyPath,
+        [Parameter (Mandatory = $true)]$pingAddress,
+        [Parameter (Mandatory = $false)]$count = 3
     )
 
     $ErrorActionPreference = 'stop'
@@ -695,11 +835,11 @@ Function Test-VMKPing {
     $WarningPreference = 'continue'
 
     $userName = "root"
-    $sshKeyCred = New-Object -TypeName System.Management.Automation.PSCredential -argumentList $userName,(New-Object System.Security.SecureString)
+    $sshKeyCred = New-Object -TypeName System.Management.Automation.PSCredential -argumentList $userName, (New-Object System.Security.SecureString)
 
     Import-Module posh-ssh
 
-    foreach($thisVMHost in $vmHost) {
+    foreach ($thisVMHost in $vmHost) {
         Write-Verbose "Attempting to test $($thisVMHost.Name)"
     
         # Enable ssh
@@ -707,14 +847,14 @@ Function Test-VMKPing {
 
         # Get a session
         $sshSession = New-SshSession -ComputerName $($thisVMHost.Name) -KeyFile $sshKeyPath -Credential $sshKeyCred
-    $res = Invoke-SSHCommand -SSHSession $sshSession -Command "vmkping -c $count $pingAddress"
+        $res = Invoke-SSHCommand -SSHSession $sshSession -Command "vmkping -c $count $pingAddress"
 
-    # Stop SSH
-    $thisVMHost | Get-VMHostService | ? {$_.label -eq 'SSH'} | Stop-VMHostService -Confirm:$false | Out-Null
+        # Stop SSH
+        $thisVMHost | Get-VMHostService | ? {$_.label -eq 'SSH'} | Stop-VMHostService -Confirm:$false | Out-Null
 
-    $res.Output
+        $res.Output
 
-}
+    }
 }
 
 Export-ModuleMember -Function *
